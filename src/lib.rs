@@ -15,8 +15,8 @@ extern crate serde_derive;
 pub mod error;
 pub mod hs512;
 
-use serde::de::DeserializeOwned;
 use crate::error::BundyError;
+use serde::de::DeserializeOwned;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -25,7 +25,7 @@ pub enum Algo {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub struct Data {
     algo: Algo,
     sig: String,
@@ -36,30 +36,28 @@ pub struct Data {
 
 impl Data {
     pub fn parse_without_verification<T: DeserializeOwned>(input: &str) -> Result<T, BundyError> {
-        let r_data = base64::decode_config(input, base64::URL_SAFE)
-            .map_err(|e| {
-                log::error!("{:?}", e);
-                BundyError::Base64
-            })?;
+        let r_data = base64::decode_config(input, base64::URL_SAFE).map_err(|e| {
+            log::error!("{:?}", e);
+            BundyError::Base64
+        })?;
 
         let Data {
-            algo: _, sig: _, data
-        } = serde_json::from_slice(&r_data)
-            .map_err(|e| {
-                log::error!("{:?}", e);
-                BundyError::JsonDecode
-            })?;
+            algo: _,
+            sig: _,
+            data,
+        } = serde_json::from_slice(&r_data).map_err(|e| {
+            log::error!("{:?}", e);
+            BundyError::JsonDecode
+        })?;
 
-        let data = base64::decode_config(&data, base64::URL_SAFE)
-            .map_err(|e| {
-                log::error!("{:?}", e);
-                BundyError::Base64
-            })?;
+        let data = base64::decode_config(&data, base64::URL_SAFE).map_err(|e| {
+            log::error!("{:?}", e);
+            BundyError::Base64
+        })?;
 
-        serde_json::from_slice(&data)
-            .map_err(|e| {
-                log::error!("{:?}", e);
-                BundyError::JsonDecode
-            })
+        serde_json::from_slice(&data).map_err(|e| {
+            log::error!("{:?}", e);
+            BundyError::JsonDecode
+        })
     }
 }
