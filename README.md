@@ -11,11 +11,6 @@ Use cases are:
 * Signing cookies or tokens that a client should be able to read and parse, but not alter.
 * In place of JWT, but without many of the complications and issues that come with JWT.
 
-Getting Started
----------------
-
-TBD
-
 Why is this named Bundy?
 ------------------------
 
