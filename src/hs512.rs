@@ -1,3 +1,5 @@
+//! An implementation of HMAC with SHA512.
+
 use crate::error::BundyError;
 use crate::{Algo, Data};
 use openssl::hash::MessageDigest;
@@ -10,11 +12,32 @@ use serde::Serialize;
 
 use std::str::FromStr;
 
+/// An instance of an HMAC SHA512 Signer and Verifier. This should only be needed on your server.
+///
+/// # Example
+/// ```rust
+/// use bundy::hs512::HS512;
+/// use std::str::FromStr;
+/// let pkey_str = HS512::generate_key().unwrap();
+/// let hmac = HS512::from_str(&pkey_str).unwrap();
+/// let data = "test_data".to_string();
+/// // Sign the data, serialising it to a string.
+/// let signed: String = hmac.sign(&data).unwrap();
+/// // Verify the data, deserialising it from a string
+/// let verified: String = hmac.verify(&signed).unwrap();
+/// assert_eq!(data, verified);
+/// ```
 pub struct HS512 {
     k: PKey<Private>,
 }
 
 impl HS512 {
+    /// Generate a new HS512 key. This key may be stored and serialised for storage and
+    /// future retrieval and persistance.
+    ///
+    /// This key is the root of the security of HMAC, and disclosure of it will allow ANY
+    /// ONE to generate their own Data that appears to be valid. If it is disclosed, you MUST
+    /// immediately reset and regenerate this key.
     pub fn generate_key() -> Result<String, BundyError> {
         let mut buf = [0; 32];
         rand_bytes(&mut buf).map_err(|e| {
@@ -31,6 +54,12 @@ impl HS512 {
         Ok(base64::encode_config(buf, base64::URL_SAFE))
     }
 
+    /// Given a piece of Serialisable data of type `T`, sign and emit this as a base64'd blob.
+    /// This base64 blob internally contains a `Data` type which is json encoded, and can be
+    /// parsed by the `Data` api.
+    ///
+    /// The corresponding function for the server to do the reverse process of deserialise and
+    /// verification is `verify`.
     pub fn sign<T: Serialize>(&self, data: &T) -> Result<String, BundyError> {
         let data = serde_json::to_vec(data).map_err(|e| {
             log::error!("{:?}", e);
@@ -62,6 +91,11 @@ impl HS512 {
         Ok(base64::encode_config(r_data, base64::URL_SAFE))
     }
 
+    /// Given an input blob, assert that this is a valid Bundy token, and verify the
+    /// signature over data is valid and created by this instance of the HMAC. If it
+    /// is not valid, the data is corrupted, or anyother possible error occurs, this
+    /// will return an Error. Only in the `Ok(T)` state is the result considered valid
+    /// and verified.
     pub fn verify<T: DeserializeOwned>(&self, input: &str) -> Result<T, BundyError> {
         // do we have a valid data blob?
         let r_data = base64::decode_config(input, base64::URL_SAFE).map_err(|e| {
@@ -150,7 +184,7 @@ mod tests {
         let signed: String = hmac.sign(&data).unwrap();
 
         let verified: String = hmac.verify(&signed).unwrap();
-        let unverified: String = Data::parse_without_verification(&signed).unwrap();
+        let unverified: String = unsafe { Data::parse_without_verification(&signed).unwrap() };
 
         assert_eq!(data, verified);
         assert_eq!(data, unverified);
