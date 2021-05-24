@@ -27,6 +27,7 @@ use std::str::FromStr;
 /// let verified: String = hmac.verify(&signed).unwrap();
 /// assert_eq!(data, verified);
 /// ```
+#[derive(Clone)]
 pub struct HS512 {
     k: PKey<Private>,
 }
